@@ -24,29 +24,16 @@ import PersonIcon from "@mui/icons-material/Person";
 import ExitToAppIcon from "@mui/icons-material/ExitToApp";
 import LoginIcon from "@mui/icons-material/Login";
 import AppRegistrationIcon from "@mui/icons-material/AppRegistration";
+import { useAuth } from "../contexts/AuthContext";
 
 const Navbar: React.FC<{
   theme: "light" | "dark";
   onThemeToggle: () => void;
-  onLogout: () => void;
-}> = ({ theme, onThemeToggle, onLogout }) => {
+}> = ({ theme, onThemeToggle }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-
-  useEffect(() => {
-    const checkLoggedInStatus = () => {
-      const userId = localStorage.getItem("userId");
-      setIsLoggedIn(!!userId);
-    };
-
-    checkLoggedInStatus();
-
-    const interval = setInterval(checkLoggedInStatus, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
+  const { isAuthenticated, logout } = useAuth();
 
   const toggleDrawer =
     (open: boolean) => (event: React.KeyboardEvent | React.MouseEvent) => {
@@ -60,12 +47,14 @@ const Navbar: React.FC<{
       setDrawerOpen(open);
     };
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("userId");
-    onLogout();
-    navigate("/login");
-    setIsLoggedIn(false);
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout failed:", error);
+      navigate("/login");
+    }
   };
 
   const isActive = (path: string) => location.pathname === path;
@@ -169,7 +158,7 @@ const Navbar: React.FC<{
         <PersonIcon sx={{ marginRight: 1 }} /> Profile
       </Button>
 
-      {isLoggedIn ? (
+      {isAuthenticated ? (
         <Button
           onClick={handleLogout}
           sx={{
@@ -400,7 +389,7 @@ const Navbar: React.FC<{
               </ListItemIcon>
               <ListItemText disableTypography primary="Profile" />
             </ListItem>
-            {isLoggedIn ? (
+            {isAuthenticated ? (
               <ListItem
                 button
                 onClick={handleLogout}

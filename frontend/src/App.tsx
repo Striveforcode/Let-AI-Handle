@@ -9,6 +9,9 @@ import "@fontsource/poppins";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 
+// Contexts
+import { AuthProvider } from "./contexts/AuthContext";
+
 // Pages
 import Home from "./pages/Home";
 import Profile from "./pages/Profile";
@@ -25,7 +28,6 @@ interface AppProps {}
 
 const App: React.FC<AppProps> = () => {
   const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // Get stored theme from localStorage
   useEffect(() => {
@@ -60,42 +62,38 @@ const App: React.FC<AppProps> = () => {
   return (
     <ThemeProvider theme={muiTheme}>
       <CssBaseline />
-      <Router>
-        <Box
-          sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}
-        >
-          <Navbar
-            theme={theme}
-            onThemeToggle={handleThemeToggle}
-            onLogout={() => setIsLoggedIn(false)}
-          />
-          <Box sx={{ flexGrow: 1 }}>
-            <Routes>
-              <Route path="/" element={<LandingPage theme={theme} />} />
-              <Route path="/home" element={<Home theme={theme} />} />
-              <Route path="/profile" element={<Profile theme={theme} />} />
-              <Route
-                path="/login"
-                element={
-                  <Login onLogin={() => setIsLoggedIn(true)} theme={theme} />
-                }
-              />
-              <Route path="/register" element={<Register theme={theme} />} />
-              <Route path="/how-to-use" element={<HowToUse theme={theme} />} />
-              <Route path="/documents" element={<Documents theme={theme} />} />
-              <Route
-                path="/privacy-policy"
-                element={<PrivacyPolicy theme={theme} />}
-              />
-              <Route
-                path="/terms-of-service"
-                element={<TermsOfService theme={theme} />}
-              />
-            </Routes>
+      <AuthProvider>
+        <Router>
+          <Box
+            sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}
+          >
+            <Navbar
+              theme={theme}
+              onThemeToggle={handleThemeToggle}
+            />
+            <Box sx={{ flexGrow: 1 }}>
+              <Routes>
+                <Route path="/" element={<LandingPage theme={theme} />} />
+                <Route path="/home" element={<Home theme={theme} />} />
+                <Route path="/profile" element={<Profile theme={theme} />} />
+                <Route path="/login" element={<Login theme={theme} />} />
+                <Route path="/register" element={<Register theme={theme} />} />
+                <Route path="/how-to-use" element={<HowToUse theme={theme} />} />
+                <Route path="/documents" element={<Documents theme={theme} />} />
+                <Route
+                  path="/privacy-policy"
+                  element={<PrivacyPolicy theme={theme} />}
+                />
+                <Route
+                  path="/terms-of-service"
+                  element={<TermsOfService theme={theme} />}
+                />
+              </Routes>
+            </Box>
+            <Footer />
           </Box>
-          <Footer />
-        </Box>
-      </Router>
+        </Router>
+      </AuthProvider>
     </ThemeProvider>
   );
 };

@@ -6,6 +6,7 @@ import {
   TextField,
   IconButton,
   CircularProgress,
+  Alert,
 } from "@mui/material";
 import {
   GitHub,
@@ -16,7 +17,8 @@ import {
   Edit as EditIcon,
   Save as SaveIcon,
 } from "@mui/icons-material";
-import axios from "axios";
+import { useAuth } from "../contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 interface ProfileProps {
   theme: "light" | "dark";
@@ -39,12 +41,13 @@ interface LoadingPlatform {
 }
 
 const Profile: React.FC<ProfileProps> = ({ theme }) => {
-  const [email, setEmail] = useState("");
+  const { user, isAuthenticated, isLoading, logout, updateProfile } = useAuth();
+  const navigate = useNavigate();
+  
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [daysSinceJoined, setDaysSinceJoined] = useState<string | null>(null);
   const [documentCount, setDocumentCount] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [updatingEmail, setUpdatingEmail] = useState(false);
   const [joinedDate, setJoinedDate] = useState("");
   const avatarImages = [
@@ -84,7 +87,6 @@ const Profile: React.FC<ProfileProps> = ({ theme }) => {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [updatingSocialMedia, setUpdatingSocialMedia] = useState(false);
   const [error, setError] = useState("");
-  const userId = localStorage.getItem("userId");
   const [randomAvatar, setRandomAvatar] = useState("");
   const today = new Date().toLocaleDateString();
   const [loadingSocialMedia, setLoadingSocialMedia] = useState(true);
@@ -102,46 +104,42 @@ const Profile: React.FC<ProfileProps> = ({ theme }) => {
       avatarImages[Math.floor(Math.random() * avatarImages.length)]
     );
 
-    if (userId) {
-      const fetchData = async () => {
-        try {
-          // Mock data for now - will be replaced with actual API calls
-          setEmail("user@example.com");
-          setDaysSinceJoined("30");
-          setDocumentCount("5");
-          setJoinedDate(new Date().toLocaleDateString());
-          setSocialMedia({
-            github: "user123",
-            linkedin: "user123",
-            facebook: "",
-            instagram: "",
-            twitter: "",
-          });
-          setLoading(false);
-        } catch (err) {
-          console.error("Error fetching user profile:", err);
-          setLoading(false);
-        }
-      };
-
-      fetchData();
-    } else {
-      setLoading(false);
+    if (user) {
+      setNewEmail(user.email);
+      setJoinedDate(new Date(user.createdAt).toLocaleDateString());
+      
+      // Calculate days since joined
+      const joined = new Date(user.createdAt);
+      const today = new Date();
+      const diffTime = Math.abs(today.getTime() - joined.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      setDaysSinceJoined(diffDays.toString());
+      
+      // Mock document count for now
+      setDocumentCount("5");
+      
+      setSocialMedia({
+        github: "user123",
+        linkedin: "user123",
+        facebook: "",
+        instagram: "",
+        twitter: "",
+      });
     }
-  }, [userId]);
+  }, [user]);
 
   const handleUpdateEmail = async () => {
+    if (!user) return;
+    
     setUpdatingEmail(true);
     setError("");
     setLoadingEmail(true);
 
     try {
-      // Mock API call for now
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setEmail(newEmail);
+      await updateProfile({ email: newEmail });
       setIsEditingEmail(false);
-    } catch (err) {
-      setError("Failed to update email. Please try again.");
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to update email. Please try again.");
     } finally {
       setUpdatingEmail(false);
       setLoadingEmail(false);
@@ -212,7 +210,17 @@ const Profile: React.FC<ProfileProps> = ({ theme }) => {
     }
   };
 
-  if (loading) {
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout failed:", error);
+      navigate("/login");
+    }
+  };
+
+  if (isLoading) {
     return (
       <Box
         display="flex"
@@ -226,7 +234,7 @@ const Profile: React.FC<ProfileProps> = ({ theme }) => {
     );
   }
 
-  if (!userId) {
+  if (!isAuthenticated || !user) {
     return (
       <Box
         sx={{
@@ -305,7 +313,7 @@ const Profile: React.FC<ProfileProps> = ({ theme }) => {
           variant="h5"
           sx={{ mb: 2, font: "inherit", fontWeight: "bold", fontSize: "24px" }}
         >
-          Welcome, {email.split("@")[0]}!
+          Welcome, {user.name}!
         </Typography>
 
         <div
@@ -329,7 +337,7 @@ const Profile: React.FC<ProfileProps> = ({ theme }) => {
           }}
         >
           <Typography sx={{ font: "inherit" }}>
-            <strong>Email:</strong> {email}
+            <strong>Email:</strong> {user.email}
           </Typography>
           <IconButton onClick={() => setIsEditingEmail(true)}>
             <EditIcon
@@ -390,9 +398,9 @@ const Profile: React.FC<ProfileProps> = ({ theme }) => {
               )}
             </Box>
             {error && (
-              <Typography color="error" sx={{ mt: 1, font: "inherit" }}>
+              <Alert severity="error" sx={{ mt: 1 }}>
                 {error}
-              </Typography>
+              </Alert>
             )}
           </Box>
         )}
@@ -525,10 +533,7 @@ const Profile: React.FC<ProfileProps> = ({ theme }) => {
           variant="contained"
           color="secondary"
           sx={{ mt: 3, font: "inherit" }}
-          onClick={() => {
-            localStorage.removeItem("userId");
-            window.location.reload();
-          }}
+          onClick={handleLogout}
         >
           Logout
         </Button>
