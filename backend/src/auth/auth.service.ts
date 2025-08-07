@@ -1,7 +1,7 @@
 import {
   Injectable,
-  BadRequestException,
   UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -12,12 +12,6 @@ import {
   RefreshToken,
   RefreshTokenDocument,
 } from '@models/auth/refresh-token.schema';
-import {
-  RegisterInitDto,
-  RegisterVerifyDto,
-  LoginInitDto,
-  LoginVerifyDto,
-} from '@contracts/auth/auth.contract';
 
 @Injectable()
 export class AuthService {
@@ -29,221 +23,304 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  // Generate OTP
-  private generateOtp(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+  // Generate a fixed OTP for testing
+  private generateOTP(): string {
+    return '123456'; // Fixed OTP for development
   }
 
-  // Send OTP (mock implementation - replace with actual email/SMS service)
-  private async sendOtp(email: string, otp: string): Promise<void> {
-    console.log(`Sending OTP ${otp} to ${email}`);
-    // TODO: Integrate with email/SMS service
-  }
+  // Register Init - Send OTP
+  async registerInit(
+    phoneNumber: string,
+    countryCode: string,
+    name: string,
+    email: string,
+  ) {
+    try {
+      // Check if user already exists
+      const existingUser = await this.userModel.findOne({ phone: phoneNumber });
+      if (existingUser) {
+        throw new BadRequestException(
+          'User already exists with this phone number',
+        );
+      }
 
-  // Initialize registration
-  async registerInit(dto: RegisterInitDto) {
-    const { email, name, phone, countryCode } = dto;
+      // Check if email is already taken
+      const existingEmail = await this.userModel.findOne({ email });
+      if (existingEmail) {
+        throw new BadRequestException('Email already registered');
+      }
 
-    // Check if user already exists
-    console.log(email, name, phone, countryCode);
-    const existingUser = await this.userModel.findOne({ email });
-    if (existingUser) {
-      throw new BadRequestException('User already exists');
-    }
+      // Delete any existing OTP for this phone
+      await this.otpModel.deleteMany({ phoneNumber, type: 'register' });
 
-    // Generate OTP
-    const otp = this.generateOtp();
+      // Generate OTP
+      const otp = this.generateOTP();
 
-    // Save OTP
-    await this.otpModel.create({
-      type: 'email',
-      phoneNumber: email, // Using email as phoneNumber for email OTP
-      otp,
-      countryCode: countryCode || '+1',
-    });
-
-    // Send OTP
-    await this.sendOtp(email, otp);
-
-    return {
-      success: true,
-      message: 'OTP sent successfully',
-      data: {
-        email,
-        expiresIn: 300, // 5 minutes
-      },
-    };
-  }
-
-  // Verify registration OTP
-  async registerVerify(dto: RegisterVerifyDto) {
-    const { email, otp } = dto;
-
-    // Find OTP
-    const otpDoc = await this.otpModel.findOne({
-      phoneNumber: email,
-      otp,
-      expireAt: { $gt: new Date() },
-    });
-
-    if (!otpDoc) {
-      throw new BadRequestException('Invalid or expired OTP');
-    }
-
-    // Create user
-    const user = await this.userModel.create({
-      email,
-      name: 'User', // Will be updated from registration data
-      isVerified: true,
-    });
-
-    // Generate tokens
-    const accessToken = this.jwtService.sign({ userId: user._id });
-    const refreshToken = this.jwtService.sign(
-      { userId: user._id },
-      { expiresIn: '7d' },
-    );
-
-    // Save refresh token
-    await this.refreshTokenModel.create({
-      refreshToken,
-      accessToken,
-      userId: user._id,
-    });
-
-    // Delete OTP
-    await this.otpModel.deleteOne({ _id: otpDoc._id });
-
-    return {
-      success: true,
-      message: 'Registration successful',
-      data: {
-        user: {
-          _id: user._id.toString(),
-          email: user.email,
-          name: user.name,
-          phone: user.phone,
-          isVerified: user.isVerified,
-          createdAt:
-            (user as any).createdAt?.toISOString() || new Date().toISOString(),
+      // Save OTP with user details
+      const otpData = new this.otpModel({
+        phoneNumber,
+        otp,
+        countryCode,
+        type: 'register',
+        expireAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+        // Store user details temporarily
+        userDetails: {
+          name,
+          email,
         },
-        accessToken,
-        refreshToken,
-      },
-    };
-  }
+      });
+      await otpData.save();
 
-  // Initialize login
-  async loginInit(dto: LoginInitDto) {
-    const { email } = dto;
+      // In production, you would send SMS here
+      console.log(`OTP for ${phoneNumber}: ${otp}`);
 
-    // Check if user exists
-    const user = await this.userModel.findOne({ email });
-    if (!user) {
-      throw new BadRequestException('User not found');
-    }
-
-    // Generate OTP
-    const otp = this.generateOtp();
-
-    // Save OTP
-    await this.otpModel.create({
-      type: 'email',
-      phoneNumber: email,
-      otp,
-      countryCode: '+1',
-    });
-
-    // Send OTP
-    await this.sendOtp(email, otp);
-
-    return {
-      success: true,
-      message: 'OTP sent successfully',
-      data: {
-        email,
-        expiresIn: 300, // 5 minutes
-      },
-    };
-  }
-
-  // Verify login OTP
-  async loginVerify(dto: LoginVerifyDto) {
-    const { email, otp } = dto;
-
-    // Find OTP
-    const otpDoc = await this.otpModel.findOne({
-      phoneNumber: email,
-      otp,
-      expireAt: { $gt: new Date() },
-    });
-
-    if (!otpDoc) {
-      throw new BadRequestException('Invalid or expired OTP');
-    }
-
-    // Find user
-    const user = await this.userModel.findOne({ email });
-    if (!user) {
-      throw new BadRequestException('User not found');
-    }
-
-    // Generate tokens
-    const accessToken = this.jwtService.sign({ userId: user._id });
-    const refreshToken = this.jwtService.sign(
-      { userId: user._id },
-      { expiresIn: '7d' },
-    );
-
-    // Save refresh token
-    await this.refreshTokenModel.create({
-      refreshToken,
-      accessToken,
-      userId: user._id,
-    });
-
-    // Delete OTP
-    await this.otpModel.deleteOne({ _id: otpDoc._id });
-
-    return {
-      success: true,
-      message: 'Login successful',
-      data: {
-        user: {
-          _id: user._id.toString(),
-          email: user.email,
-          name: user.name,
-          phone: user.phone,
-          isVerified: user.isVerified,
+      return {
+        success: true,
+        message: 'OTP sent successfully',
+        data: {
+          phoneNumber,
+          countryCode,
         },
-        accessToken,
-        refreshToken,
-      },
-    };
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 
-  // Refresh token
+  // Register Verify - Verify OTP and create user
+  async registerVerify(phoneNumber: string, countryCode: string, otp: string) {
+    try {
+      // Find OTP record
+      const otpRecord = await this.otpModel.findOne({
+        phoneNumber,
+        otp,
+        type: 'register',
+        expireAt: { $gt: new Date() },
+      });
+
+      if (!otpRecord) {
+        throw new BadRequestException('Invalid or expired OTP');
+      }
+
+      // Get user details from OTP record
+      const userDetails = otpRecord.userDetails;
+      if (!userDetails || !userDetails.name || !userDetails.email) {
+        throw new BadRequestException(
+          'User details not found. Please try registration again.',
+        );
+      }
+
+      // Create new user with stored details
+      const user = new this.userModel({
+        name: userDetails.name,
+        email: userDetails.email,
+        phone: phoneNumber,
+        countryCode,
+        isVerified: true,
+      });
+      await user.save();
+
+      // Delete the used OTP
+      await this.otpModel.deleteOne({ _id: otpRecord._id });
+
+      // Generate tokens
+      const accessToken = this.jwtService.sign({ userId: user._id });
+      const refreshToken = this.jwtService.sign(
+        { userId: user._id, type: 'refresh' },
+        { expiresIn: '7d' },
+      );
+
+      // Save refresh token
+      const refreshTokenDoc = new this.refreshTokenModel({
+        userId: user._id,
+        refreshToken,
+        accessToken,
+      });
+      await refreshTokenDoc.save();
+
+      return {
+        success: true,
+        message: 'Registration successful',
+        data: {
+          user: {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            countryCode: user.countryCode,
+            isVerified: user.isVerified,
+            createdAt: (user as any).createdAt,
+            updatedAt: (user as any).updatedAt,
+          },
+          accessToken,
+          refreshToken,
+        },
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Register Resend - Resend OTP
+  async registerResend(phoneNumber: string, countryCode: string) {
+    try {
+      // Delete any existing OTP for this phone
+      await this.otpModel.deleteMany({ phoneNumber, type: 'register' });
+
+      // Generate new OTP
+      const otp = this.generateOTP();
+
+      // Save new OTP
+      const otpData = new this.otpModel({
+        phoneNumber,
+        otp,
+        countryCode,
+        type: 'register',
+        expireAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+      });
+      await otpData.save();
+
+      // In production, you would send SMS here
+      console.log(`New OTP for ${phoneNumber}: ${otp}`);
+
+      return {
+        success: true,
+        message: 'OTP resent successfully',
+        data: {
+          phoneNumber,
+          countryCode,
+        },
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Login Init - Send OTP
+  async loginInit(phoneNumber: string, countryCode: string) {
+    try {
+      // Check if user exists
+      const user = await this.userModel.findOne({ phone: phoneNumber });
+      if (!user) {
+        throw new BadRequestException('User not found. Please register first.');
+      }
+
+      // Generate OTP
+      const otp = this.generateOTP();
+
+      // Save OTP to database
+      const otpData = new this.otpModel({
+        phoneNumber,
+        otp,
+        countryCode,
+        type: 'login',
+        expireAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+      });
+      await otpData.save();
+
+      // In production, you would send SMS here
+      console.log(`Login OTP for ${phoneNumber}: ${otp}`);
+
+      return {
+        success: true,
+        message: 'OTP sent successfully',
+        data: {
+          phoneNumber,
+          countryCode,
+        },
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Login Verify - Complete login
+  async loginVerify(phoneNumber: string, countryCode: string, otp: string) {
+    try {
+      // Find the OTP record
+      const otpRecord = await this.otpModel.findOne({
+        phoneNumber,
+        otp,
+        type: 'login',
+        expireAt: { $gt: new Date() }, // Not expired
+      });
+
+      if (!otpRecord) {
+        throw new BadRequestException('Invalid or expired OTP');
+      }
+
+      // Find user
+      const user = await this.userModel.findOne({ phone: phoneNumber });
+      if (!user) {
+        throw new BadRequestException('User not found');
+      }
+
+      // Delete the used OTP
+      await this.otpModel.deleteOne({ _id: otpRecord._id });
+
+      // Generate tokens
+      const accessToken = this.jwtService.sign({ userId: user._id });
+      const refreshToken = this.jwtService.sign(
+        { userId: user._id, type: 'refresh' },
+        { expiresIn: '7d' },
+      );
+
+      // Save refresh token
+      const refreshTokenDoc = new this.refreshTokenModel({
+        userId: user._id,
+        refreshToken,
+        accessToken,
+      });
+      await refreshTokenDoc.save();
+
+      return {
+        success: true,
+        message: 'Login successful',
+        data: {
+          user: {
+            _id: user._id,
+            phone: user.phone,
+            countryCode: user.countryCode,
+            isVerified: user.isVerified,
+            createdAt: (user as any).createdAt,
+            updatedAt: (user as any).updatedAt,
+          },
+          accessToken,
+          refreshToken,
+        },
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Refresh Token
   async refreshToken(refreshToken: string) {
     try {
+      // Verify refresh token
       const payload = this.jwtService.verify(refreshToken);
-      const tokenDoc = await this.refreshTokenModel.findOne({ refreshToken });
 
-      if (!tokenDoc) {
+      // Check if refresh token exists in database
+      const refreshTokenDoc = await this.refreshTokenModel.findOne({
+        refreshToken,
+        expireAt: { $gt: new Date() },
+      });
+
+      if (!refreshTokenDoc) {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
       // Generate new tokens
       const newAccessToken = this.jwtService.sign({ userId: payload.userId });
       const newRefreshToken = this.jwtService.sign(
-        { userId: payload.userId },
+        { userId: payload.userId, type: 'refresh' },
         { expiresIn: '7d' },
       );
 
-      // Update refresh token
-      await this.refreshTokenModel.updateOne(
-        { refreshToken },
-        { refreshToken: newRefreshToken, accessToken: newAccessToken },
-      );
+      // Update refresh token in database
+      refreshTokenDoc.accessToken = newAccessToken;
+      refreshTokenDoc.refreshToken = newRefreshToken;
+      await refreshTokenDoc.save();
 
       return {
         success: true,
@@ -254,17 +331,23 @@ export class AuthService {
         },
       };
     } catch (error) {
-      throw new UnauthorizedException('Invalid refresh token', error);
+      console.log(error);
+      throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
   // Logout
-  async logout(refreshToken: string) {
-    await this.refreshTokenModel.deleteOne({ refreshToken });
+  async logout(userId: string) {
+    try {
+      // Delete refresh tokens for this user
+      await this.refreshTokenModel.deleteMany({ userId });
 
-    return {
-      success: true,
-      message: 'Logged out successfully',
-    };
+      return {
+        success: true,
+        message: 'Logout successful',
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 }

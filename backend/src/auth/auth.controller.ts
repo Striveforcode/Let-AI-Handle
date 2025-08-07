@@ -1,57 +1,82 @@
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import {
-  RegisterInitDto,
-  RegisterVerifyDto,
-  LoginInitDto,
-  LoginVerifyDto,
-  RefreshTokenDto,
-  LogoutDto,
-} from '@contracts/auth/auth.contract';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // Register Init - Send OTP
   @Post('register/init')
-  @HttpCode(HttpStatus.OK)
-  async registerInit(@Body() dto: RegisterInitDto) {
-    return this.authService.registerInit(dto);
+  async registerInit(
+    @Body()
+    body: {
+      phoneNumber: string;
+      countryCode: string;
+      name: string;
+      email: string;
+    },
+  ) {
+    return this.authService.registerInit(
+      body.phoneNumber,
+      body.countryCode,
+      body.name,
+      body.email,
+    );
   }
 
+  // Register Verify - Complete registration
   @Post('register/verify')
   @HttpCode(HttpStatus.OK)
-  async registerVerify(@Body() dto: RegisterVerifyDto) {
-    return this.authService.registerVerify(dto);
+  async registerVerify(
+    @Body() body: { phoneNumber: string; countryCode: string; otp: string },
+  ) {
+    return this.authService.registerVerify(
+      body.phoneNumber,
+      body.countryCode,
+      body.otp,
+    );
   }
 
+  // Register Resend - Resend OTP
   @Post('register/resend')
   @HttpCode(HttpStatus.OK)
-  async resendOtp(@Body() dto: RegisterInitDto) {
-    return this.authService.registerInit(dto);
+  async registerResend(
+    @Body() body: { phoneNumber: string; countryCode: string },
+  ) {
+    return this.authService.registerResend(body.phoneNumber, body.countryCode);
   }
 
+  // Login Init - Send OTP
   @Post('login/init')
   @HttpCode(HttpStatus.OK)
-  async loginInit(@Body() dto: LoginInitDto) {
-    return this.authService.loginInit(dto);
+  async loginInit(@Body() body: { phoneNumber: string; countryCode: string }) {
+    return this.authService.loginInit(body.phoneNumber, body.countryCode);
   }
 
+  // Login Verify - Complete login
   @Post('login/verify')
   @HttpCode(HttpStatus.OK)
-  async loginVerify(@Body() dto: LoginVerifyDto) {
-    return this.authService.loginVerify(dto);
+  async loginVerify(
+    @Body() body: { phoneNumber: string; countryCode: string; otp: string },
+  ) {
+    return this.authService.loginVerify(
+      body.phoneNumber,
+      body.countryCode,
+      body.otp,
+    );
   }
 
+  // Refresh Token
   @Post('token/refresh')
   @HttpCode(HttpStatus.OK)
-  async refreshToken(@Body() dto: RefreshTokenDto) {
-    return this.authService.refreshToken(dto.refreshToken);
+  async refreshToken(@Body() body: { refreshToken: string }) {
+    return this.authService.refreshToken(body.refreshToken);
   }
 
+  // Logout
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(@Body() dto: LogoutDto) {
-    return this.authService.logout(dto.refreshToken);
+  async logout(@Body() body: { userId: string }) {
+    return this.authService.logout(body.userId);
   }
 }

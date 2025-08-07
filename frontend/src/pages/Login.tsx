@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { authAPI } from "../services/api";
 
 interface LoginProps {
   theme: "light" | "dark";
@@ -62,19 +63,16 @@ const Login: React.FC<LoginProps> = ({ theme }) => {
     setError("");
 
     try {
-      // This would call the backend API
-      // await authAPI.loginInit(phoneNumber, countryCode);
-      
-      // For now, simulate the API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      // 🎯 ENABLE REAL API CALL
+      await authAPI.loginInit(phoneNumber, countryCode);
+
       setStep("otp");
       setSuccess("OTP sent successfully!");
       setCountdown(30);
-      
+
       // Start countdown
       const timer = setInterval(() => {
-        setCountdown(prev => {
+        setCountdown((prev) => {
           if (prev <= 1) {
             clearInterval(timer);
             return 0;
@@ -82,7 +80,6 @@ const Login: React.FC<LoginProps> = ({ theme }) => {
           return prev - 1;
         });
       }, 1000);
-      
     } catch (error) {
       setError("Failed to send OTP. Please try again.");
     } finally {
@@ -111,7 +108,9 @@ const Login: React.FC<LoginProps> = ({ theme }) => {
         navigate("/home");
       }, 1000);
     } catch (error: any) {
-      setError(error.response?.data?.message || "Login failed. Please try again.");
+      setError(
+        error.response?.data?.message || "Login failed. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -119,19 +118,19 @@ const Login: React.FC<LoginProps> = ({ theme }) => {
 
   const handleResendOTP = async () => {
     if (countdown > 0) return;
-    
+
     setLoading(true);
     setError("");
 
     try {
-      // await authAPI.loginInit(phoneNumber, countryCode);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      // 🎯 ENABLE REAL API CALL
+      await authAPI.loginInit(phoneNumber, countryCode);
+
       setSuccess("OTP resent successfully!");
       setCountdown(30);
-      
+
       const timer = setInterval(() => {
-        setCountdown(prev => {
+        setCountdown((prev) => {
           if (prev <= 1) {
             clearInterval(timer);
             return 0;
@@ -139,7 +138,6 @@ const Login: React.FC<LoginProps> = ({ theme }) => {
           return prev - 1;
         });
       }, 1000);
-      
     } catch (error) {
       setError("Failed to resend OTP. Please try again.");
     } finally {
@@ -251,7 +249,9 @@ const Login: React.FC<LoginProps> = ({ theme }) => {
               fullWidth
               label="OTP"
               value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              onChange={(e) =>
+                setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+              }
               placeholder="Enter 6-digit OTP"
               type="text"
               sx={{ mb: 3 }}

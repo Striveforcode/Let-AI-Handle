@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { authAPI } from "../services/api";
 
 interface RegisterProps {
   theme: "light" | "dark";
@@ -65,11 +66,6 @@ const Register: React.FC<RegisterProps> = ({ theme }) => {
       return;
     }
 
-    if (!validateEmail(email)) {
-      setError("Please enter a valid email address");
-      return;
-    }
-
     if (!phoneNumber.trim()) {
       setError("Please enter your phone number");
       return;
@@ -80,23 +76,24 @@ const Register: React.FC<RegisterProps> = ({ theme }) => {
       return;
     }
 
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
     try {
-      // This would call the backend API
-      // await authAPI.registerInit(phoneNumber, countryCode);
-      
-      // For now, simulate the API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await authAPI.registerInit(phoneNumber, countryCode, name, email);
+
       setStep("otp");
       setSuccess("OTP sent successfully!");
       setCountdown(30);
-      
+
       // Start countdown
       const timer = setInterval(() => {
-        setCountdown(prev => {
+        setCountdown((prev) => {
           if (prev <= 1) {
             clearInterval(timer);
             return 0;
@@ -104,7 +101,6 @@ const Register: React.FC<RegisterProps> = ({ theme }) => {
           return prev - 1;
         });
       }, 1000);
-      
     } catch (error) {
       setError("Failed to send OTP. Please try again.");
     } finally {
@@ -133,7 +129,10 @@ const Register: React.FC<RegisterProps> = ({ theme }) => {
         navigate("/home");
       }, 1000);
     } catch (error: any) {
-      setError(error.response?.data?.message || "Registration failed. Please try again.");
+      setError(
+        error.response?.data?.message ||
+          "Registration failed. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -141,19 +140,18 @@ const Register: React.FC<RegisterProps> = ({ theme }) => {
 
   const handleResendOTP = async () => {
     if (countdown > 0) return;
-    
+
     setLoading(true);
     setError("");
 
     try {
-      // await authAPI.registerInit(phoneNumber, countryCode);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await authAPI.registerInit(phoneNumber, countryCode, name, email);
+
       setSuccess("OTP resent successfully!");
       setCountdown(30);
-      
+
       const timer = setInterval(() => {
-        setCountdown(prev => {
+        setCountdown((prev) => {
           if (prev <= 1) {
             clearInterval(timer);
             return 0;
@@ -161,7 +159,6 @@ const Register: React.FC<RegisterProps> = ({ theme }) => {
           return prev - 1;
         });
       }, 1000);
-      
     } catch (error) {
       setError("Failed to resend OTP. Please try again.");
     } finally {
@@ -271,7 +268,9 @@ const Register: React.FC<RegisterProps> = ({ theme }) => {
               fullWidth
               variant="contained"
               onClick={handleSendOTP}
-              disabled={loading || !name.trim() || !email.trim() || !phoneNumber.trim()}
+              disabled={
+                loading || !name.trim() || !email.trim() || !phoneNumber.trim()
+              }
               sx={{
                 bgcolor: "#f57c00",
                 "&:hover": { bgcolor: "#e65100" },
@@ -292,7 +291,9 @@ const Register: React.FC<RegisterProps> = ({ theme }) => {
               fullWidth
               label="OTP"
               value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              onChange={(e) =>
+                setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+              }
               placeholder="Enter 6-digit OTP"
               type="text"
               sx={{ mb: 3 }}

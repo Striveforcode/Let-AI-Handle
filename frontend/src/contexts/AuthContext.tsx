@@ -1,5 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authAPI, authUtils, userAPI } from '../services/api';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { authAPI, authUtils, userAPI } from "../services/api";
 
 interface User {
   _id: string;
@@ -16,8 +22,16 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (phoneNumber: string, countryCode: string, otp: string) => Promise<void>;
-  register: (phoneNumber: string, countryCode: string, otp: string) => Promise<void>;
+  login: (
+    phoneNumber: string,
+    countryCode: string,
+    otp: string
+  ) => Promise<void>;
+  register: (
+    phoneNumber: string,
+    countryCode: string,
+    otp: string
+  ) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -44,7 +58,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setUser(response.data);
         }
       } catch (error) {
-        console.error('Auth check failed:', error);
+        console.error("Auth check failed:", error);
         authUtils.clearTokens();
       } finally {
         setIsLoading(false);
@@ -54,37 +68,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkAuth();
   }, []);
 
-  const login = async (phoneNumber: string, countryCode: string, otp: string) => {
+  const login = async (
+    phoneNumber: string,
+    countryCode: string,
+    otp: string
+  ) => {
     try {
       const response = await authAPI.loginVerify(phoneNumber, countryCode, otp);
       const { accessToken, refreshToken, user: userData } = response.data;
-      
+
       authUtils.setTokens(accessToken, refreshToken);
       setUser(userData);
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error("Login failed:", error);
       throw error;
     }
   };
 
-  const register = async (phoneNumber: string, countryCode: string, otp: string) => {
+  const register = async (
+    phoneNumber: string,
+    countryCode: string,
+    otp: string
+  ) => {
     try {
-      const response = await authAPI.registerVerify(phoneNumber, countryCode, otp);
+      const response = await authAPI.registerVerify(
+        phoneNumber,
+        countryCode,
+        otp
+      );
       const { accessToken, refreshToken, user: userData } = response.data;
-      
+
       authUtils.setTokens(accessToken, refreshToken);
       setUser(userData);
     } catch (error) {
-      console.error('Registration failed:', error);
+      console.error("Registration failed:", error);
       throw error;
     }
   };
 
   const logout = async () => {
     try {
-      await authAPI.logout();
+      if (user?._id) {
+        await authAPI.logout(user._id);
+      }
     } catch (error) {
-      console.error('Logout API call failed:', error);
+      console.error("Logout API call failed:", error);
     } finally {
       authUtils.clearTokens();
       setUser(null);
@@ -96,7 +124,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await userAPI.updateProfile(data);
       setUser(response.data);
     } catch (error) {
-      console.error('Profile update failed:', error);
+      console.error("Profile update failed:", error);
       throw error;
     }
   };
@@ -106,7 +134,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await userAPI.getProfile();
       setUser(response.data);
     } catch (error) {
-      console.error('User refresh failed:', error);
+      console.error("User refresh failed:", error);
       throw error;
     }
   };
@@ -128,7 +156,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };

@@ -13,7 +13,7 @@ export class Otp {
     type: MongooseSchema.Types.String,
     required: true,
   })
-  type!: string; // 'email' or 'phone'
+  type!: string; // 'register' or 'login'
 
   @Prop({
     type: MongooseSchema.Types.String,
@@ -39,6 +39,18 @@ export class Otp {
     expires: 1, // Expires 1 second after expireAt
   })
   expireAt!: Date;
+
+  @Prop({
+    type: {
+      name: { type: MongooseSchema.Types.String, required: false },
+      email: { type: MongooseSchema.Types.String, required: false },
+    },
+    required: false,
+  })
+  userDetails?: {
+    name: string;
+    email: string;
+  };
 }
 
 export const OtpSchema = SchemaFactory.createForClass(Otp);
