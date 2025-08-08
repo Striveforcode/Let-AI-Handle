@@ -18,6 +18,18 @@ export class Document {
 
   @Prop({
     type: MongooseSchema.Types.String,
+    required: false,
+  })
+  description?: string;
+
+  @Prop({
+    type: [MongooseSchema.Types.String],
+    required: false,
+  })
+  tags?: string[];
+
+  @Prop({
+    type: MongooseSchema.Types.String,
     required: true,
   })
   fileName!: string;
@@ -39,6 +51,24 @@ export class Document {
     required: true,
   })
   fileUrl!: string; // URL to stored file
+
+  @Prop({
+    type: MongooseSchema.Types.String,
+    required: false,
+  })
+  filePath?: string; // Local file path for development
+
+  @Prop({
+    type: MongooseSchema.Types.Date,
+    default: Date.now,
+  })
+  uploadDate!: Date;
+
+  @Prop({
+    type: MongooseSchema.Types.String,
+    default: "uploaded",
+  })
+  status!: string; // uploaded, processing, processed, error
 
   @Prop({
     type: MongooseSchema.Types.String,
