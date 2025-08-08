@@ -10,43 +10,16 @@ import {
   UploadedFile,
   Request,
   BadRequestException,
-  UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { JwtService } from '@nestjs/jwt';
 import { DocumentService } from './document.service';
+import { AuthGuard } from '../auth/auth.guard';
 
 @Controller('document')
+@UseGuards(AuthGuard)
 export class DocumentController {
-  constructor(
-    private readonly documentService: DocumentService,
-    private readonly jwtService: JwtService,
-  ) {}
-
-  private extractUserIdFromToken(req: any): string {
-    try {
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        throw new UnauthorizedException(
-          'No valid authorization token provided',
-        );
-      }
-
-      const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-      const decoded = this.jwtService.verify(token);
-
-      if (!decoded.userId) {
-        throw new UnauthorizedException('Invalid token: no userId found');
-      }
-
-      return decoded.userId;
-    } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      throw new UnauthorizedException('Invalid or expired token');
-    }
-  }
+  constructor(private readonly documentService: DocumentService) {}
 
   // Upload document
   @Post('upload')
@@ -56,6 +29,12 @@ export class DocumentController {
     @Body() body: { title: string; description?: string; tags?: string },
     @Request() req: any,
   ) {
+    console.log('🔍 DocumentController - Request headers:', req.headers);
+    console.log(
+      '🔍 DocumentController - Auth payload:',
+      req.headers.authPayload,
+    );
+
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
@@ -65,7 +44,16 @@ export class DocumentController {
     }
 
     const tags = body.tags ? JSON.parse(body.tags) : [];
-    const userId = this.extractUserIdFromToken(req);
+    const userId = req.headers.authPayload?.userId; // Changed from .sub to .userId
+
+    console.log('🔍 DocumentController - Extracted userId:', userId);
+
+    if (!userId) {
+      console.log('❌ DocumentController - No userId found in auth payload');
+      throw new BadRequestException(
+        'User ID not found in authentication token',
+      );
+    }
 
     return this.documentService.uploadDocument(userId, file, {
       title: body.title,
@@ -77,7 +65,7 @@ export class DocumentController {
   // Get user's documents
   @Get('user')
   async getUserDocuments(@Request() req: any) {
-    const userId = this.extractUserIdFromToken(req);
+    const userId = req.headers.authPayload.userId; // Get userId from JWT payload
     return this.documentService.getUserDocuments(userId);
   }
 
@@ -87,7 +75,7 @@ export class DocumentController {
     @Param('documentId') documentId: string,
     @Request() req: any,
   ) {
-    const userId = this.extractUserIdFromToken(req);
+    const userId = req.headers.authPayload.userId; // Get userId from JWT payload
     return this.documentService.getDocument(documentId, userId);
   }
 
@@ -98,7 +86,7 @@ export class DocumentController {
     @Body() updates: { title?: string; description?: string; tags?: string[] },
     @Request() req: any,
   ) {
-    const userId = this.extractUserIdFromToken(req);
+    const userId = req.headers.authPayload.userId; // Get userId from JWT payload
     return this.documentService.updateDocument(documentId, userId, updates);
   }
 
@@ -108,14 +96,14 @@ export class DocumentController {
     @Param('documentId') documentId: string,
     @Request() req: any,
   ) {
-    const userId = this.extractUserIdFromToken(req);
+    const userId = req.headers.authPayload.userId; // Get userId from JWT payload
     return this.documentService.deleteDocument(documentId, userId);
   }
 
   // Get document statistics
   @Get('stats/user')
   async getDocumentStats(@Request() req: any) {
-    const userId = this.extractUserIdFromToken(req);
+    const userId = req.headers.authPayload.userId; // Get userId from JWT payload
     return this.documentService.getDocumentStats(userId);
   }
 }

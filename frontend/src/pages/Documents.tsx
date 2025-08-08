@@ -14,6 +14,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Divider,
+  Link,
 } from "@mui/material";
 import {
   CloudUpload as CloudUploadIcon,
@@ -21,6 +23,8 @@ import {
   Edit as EditIcon,
   Visibility as VisibilityIcon,
   Description as DescriptionIcon,
+  Download as DownloadIcon,
+  Close as CloseIcon,
 } from "@mui/icons-material";
 import { documentAPI } from "../services/api";
 import DocumentUpload from "../components/DocumentUpload";
@@ -39,6 +43,7 @@ interface Document {
   fileType: string;
   uploadDate: string;
   status: string;
+  fileUrl?: string;
 }
 
 const Documents: React.FC<DocumentsProps> = ({ theme }) => {
@@ -46,6 +51,10 @@ const Documents: React.FC<DocumentsProps> = ({ theme }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(
+    null
+  );
   const [deletingDocument, setDeletingDocument] = useState<string | null>(null);
 
   const fetchDocuments = async () => {
@@ -83,6 +92,23 @@ const Documents: React.FC<DocumentsProps> = ({ theme }) => {
       setError(err.response?.data?.message || "Failed to delete document");
     } finally {
       setDeletingDocument(null);
+    }
+  };
+
+  const handleViewDocument = (document: Document) => {
+    setSelectedDocument(document);
+    setViewDialogOpen(true);
+  };
+
+  const handleDownloadDocument = (doc: Document) => {
+    if (doc.fileUrl) {
+      // Create a temporary link to download the file
+      const link = window.document.createElement("a");
+      link.href = `http://localhost:3001${doc.fileUrl}`;
+      link.download = doc.fileName;
+      window.document.body.appendChild(link);
+      link.click();
+      window.document.body.removeChild(link);
     }
   };
 
@@ -323,6 +349,7 @@ const Documents: React.FC<DocumentsProps> = ({ theme }) => {
                           variant="outlined"
                           startIcon={<VisibilityIcon />}
                           fullWidth
+                          onClick={() => handleViewDocument(document)}
                         >
                           View
                         </Button>
@@ -359,6 +386,118 @@ const Documents: React.FC<DocumentsProps> = ({ theme }) => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* View Document Dialog */}
+        <Dialog
+          open={viewDialogOpen}
+          onClose={() => setViewDialogOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Typography variant="h6">Document Details</Typography>
+              <IconButton onClick={() => setViewDialogOpen(false)}>
+                <CloseIcon />
+              </IconButton>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            {selectedDocument && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="h5" sx={{ mb: 2, color: "#f57c00" }}>
+                  {selectedDocument.title}
+                </Typography>
+
+                <Chip
+                  label={selectedDocument.status}
+                  color={getStatusColor(selectedDocument.status) as any}
+                  sx={{ mb: 2 }}
+                />
+
+                {selectedDocument.description && (
+                  <Typography variant="body1" sx={{ mb: 2 }}>
+                    {selectedDocument.description}
+                  </Typography>
+                )}
+
+                <Divider sx={{ my: 2 }} />
+
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      File Name
+                    </Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                      {selectedDocument.fileName}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      File Size
+                    </Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                      {formatFileSize(selectedDocument.fileSize)}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      File Type
+                    </Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                      {selectedDocument.fileType}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Upload Date
+                    </Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                      {formatDate(selectedDocument.uploadDate)}
+                    </Typography>
+                  </Grid>
+                </Grid>
+
+                {selectedDocument.tags && selectedDocument.tags.length > 0 && (
+                  <>
+                    <Divider sx={{ my: 2 }} />
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      sx={{ mb: 1 }}
+                    >
+                      Tags
+                    </Typography>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                      {selectedDocument.tags.map((tag, index) => (
+                        <Chip key={index} label={tag} variant="outlined" />
+                      ))}
+                    </Box>
+                  </>
+                )}
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={() =>
+                selectedDocument && handleDownloadDocument(selectedDocument)
+              }
+              disabled={!selectedDocument?.fileUrl}
+            >
+              Download
+            </Button>
+            <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
           </DialogActions>
         </Dialog>
       </Container>

@@ -38,6 +38,7 @@ export class DocumentService {
       tags?: string[];
     },
   ) {
+    console.log(userId);
     try {
       // Ensure uploads directory exists
       this.ensureUploadsDirectory();
