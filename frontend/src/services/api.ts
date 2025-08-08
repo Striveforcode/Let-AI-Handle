@@ -181,6 +181,60 @@ export const userAPI = {
   },
 };
 
+// Document API functions
+export const documentAPI = {
+  // Upload document
+  uploadDocument: async (
+    file: File,
+    metadata: { title: string; description?: string; tags?: string[] }
+  ) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("title", metadata.title);
+    if (metadata.description)
+      formData.append("description", metadata.description);
+    if (metadata.tags) formData.append("tags", JSON.stringify(metadata.tags));
+
+    const response = await api.post("/document/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  },
+
+  // Get user's documents
+  getUserDocuments: async () => {
+    const response = await api.get("/document/user");
+    return response.data;
+  },
+
+  // Get single document
+  getDocument: async (documentId: string) => {
+    const response = await api.get(`/document/${documentId}`);
+    return response.data;
+  },
+
+  // Update document metadata
+  updateDocument: async (
+    documentId: string,
+    updates: { title?: string; description?: string; tags?: string[] }
+  ) => {
+    const response = await api.put(`/document/${documentId}`, updates);
+    return response.data;
+  },
+
+  // Delete document
+  deleteDocument: async (documentId: string) => {
+    const response = await api.delete(`/document/${documentId}`);
+    return response.data;
+  },
+
+  // Get document statistics
+  getDocumentStats: async () => {
+    const response = await api.get("/document/stats/user");
+    return response.data;
+  },
+};
+
 // Utility functions
 export const authUtils = {
   isAuthenticated: () => {

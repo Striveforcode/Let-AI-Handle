@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   Document,
   DocumentDocument,
@@ -14,7 +16,17 @@ import {
 export class DocumentService {
   constructor(
     @InjectModel(Document.name) private documentModel: Model<DocumentDocument>,
-  ) {}
+  ) {
+    // Ensure uploads directory exists
+    this.ensureUploadsDirectory();
+  }
+
+  private ensureUploadsDirectory() {
+    const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+  }
 
   // Upload document
   async uploadDocument(
@@ -27,15 +39,29 @@ export class DocumentService {
     },
   ) {
     try {
+      // Ensure uploads directory exists
+      this.ensureUploadsDirectory();
+
+      // Generate unique filename
+      const timestamp = Date.now();
+      const originalName = file.originalname;
+      const fileName = `${timestamp}_${originalName}`;
+      const filePath = path.join(__dirname, '..', '..', 'uploads', fileName);
+
+      // Save file to disk
+      fs.writeFileSync(filePath, file.buffer);
+
+      // Create document record
       const document = new this.documentModel({
         userId,
         title: metadata.title,
         description: metadata.description || '',
         tags: metadata.tags || [],
-        fileName: file.originalname,
+        fileName: originalName,
         fileSize: file.size,
         fileType: file.mimetype,
-        filePath: file.path, // In production, this would be a cloud storage URL
+        fileUrl: `/uploads/${fileName}`, // URL for accessing the file
+        filePath: filePath, // Local file path
         uploadDate: new Date(),
         status: 'uploaded',
       });
@@ -54,6 +80,7 @@ export class DocumentService {
             fileName: document.fileName,
             fileSize: document.fileSize,
             fileType: document.fileType,
+            fileUrl: document.fileUrl,
             uploadDate: document.uploadDate,
             status: document.status,
           },
