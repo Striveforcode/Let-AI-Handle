@@ -7,6 +7,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as fs from 'fs';
 import * as path from 'path';
+import { AiService } from '../ai/ai.service';
 import {
   Document,
   DocumentDocument,
@@ -16,13 +17,15 @@ import {
 export class DocumentService {
   constructor(
     @InjectModel(Document.name) private documentModel: Model<DocumentDocument>,
+    private readonly aiService: AiService,
   ) {
     // Ensure uploads directory exists
     this.ensureUploadsDirectory();
   }
 
   private ensureUploadsDirectory() {
-    const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
+    // Fix: Use process.cwd() to get correct path regardless of build location
+    const uploadsDir = path.join(process.cwd(), 'uploads');
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
@@ -38,7 +41,6 @@ export class DocumentService {
       tags?: string[];
     },
   ) {
-    console.log(userId);
     try {
       // Ensure uploads directory exists
       this.ensureUploadsDirectory();
@@ -47,7 +49,8 @@ export class DocumentService {
       const timestamp = Date.now();
       const originalName = file.originalname;
       const fileName = `${timestamp}_${originalName}`;
-      const filePath = path.join(__dirname, '..', '..', 'uploads', fileName);
+      // Fix: Use process.cwd() to get correct path regardless of build location
+      const filePath = path.join(process.cwd(), 'uploads', fileName);
 
       // Save file to disk
       fs.writeFileSync(filePath, file.buffer);
@@ -69,9 +72,12 @@ export class DocumentService {
 
       await document.save();
 
+      // Start AI analysis in background
+      this.performAiAnalysis(document._id.toString(), filePath, originalName);
+
       return {
         success: true,
-        message: 'Document uploaded successfully',
+        message: 'Document uploaded successfully. AI analysis is in progress.',
         data: {
           document: {
             _id: document._id,
@@ -90,6 +96,46 @@ export class DocumentService {
     } catch (error) {
       console.log(error);
       throw new BadRequestException('Failed to upload document');
+    }
+  }
+
+  // Perform AI analysis in background
+  private async performAiAnalysis(
+    documentId: string,
+    filePath: string,
+    fileName: string,
+  ) {
+    try {
+      console.log(`🚀 Starting AI analysis for document: ${documentId}`);
+
+      await this.documentModel.findByIdAndUpdate(documentId, {
+        status: 'processing',
+      });
+
+      const analysis = await this.aiService.analyzeDocument(filePath, fileName);
+
+      // Save all AI analysis results to database
+      await this.documentModel.findByIdAndUpdate(documentId, {
+        status: 'processed',
+        summary: analysis.summary,
+        insights: analysis.insights,
+        keyPoints: analysis.keyPoints,
+        sentiment: analysis.sentiment,
+        processedAt: new Date(),
+      });
+
+      console.log(`✅ AI analysis completed for document: ${documentId}`);
+      console.log(`💾 Saved to DB:`, {
+        summary: analysis.summary?.substring(0, 100) + '...',
+        insightsCount: analysis.insights?.length,
+        keyPointsCount: analysis.keyPoints?.length,
+        sentiment: analysis.sentiment,
+      });
+    } catch (error) {
+      console.error(`❌ AI analysis failed for document: ${documentId}`, error);
+      await this.documentModel.findByIdAndUpdate(documentId, {
+        status: 'error',
+      });
     }
   }
 
@@ -113,8 +159,14 @@ export class DocumentService {
             fileName: doc.fileName,
             fileSize: doc.fileSize,
             fileType: doc.fileType,
+            fileUrl: doc.fileUrl,
             uploadDate: doc.uploadDate,
             status: doc.status,
+            summary: doc.summary,
+            insights: doc.insights,
+            keyPoints: doc.keyPoints,
+            sentiment: doc.sentiment,
+            processedAt: doc.processedAt,
           })),
         },
       };
@@ -136,6 +188,18 @@ export class DocumentService {
         throw new NotFoundException('Document not found');
       }
 
+      // Log the retrieved document data for debugging
+      console.log(`📄 Retrieved document from DB:`, {
+        id: document._id,
+        title: document.title,
+        status: document.status,
+        hasSummary: !!document.summary,
+        hasInsights: !!document.insights,
+        hasKeyPoints: !!document.keyPoints,
+        hasSentiment: !!document.sentiment,
+        processedAt: document.processedAt,
+      });
+
       return {
         success: true,
         message: 'Document retrieved successfully',
@@ -148,8 +212,14 @@ export class DocumentService {
             fileName: document.fileName,
             fileSize: document.fileSize,
             fileType: document.fileType,
+            fileUrl: document.fileUrl,
             uploadDate: document.uploadDate,
             status: document.status,
+            summary: document.summary,
+            insights: document.insights,
+            keyPoints: document.keyPoints,
+            sentiment: document.sentiment,
+            processedAt: document.processedAt,
           },
         },
       };
@@ -261,6 +331,49 @@ export class DocumentService {
     } catch (error) {
       console.log(error);
       throw new BadRequestException('Failed to retrieve document statistics');
+    }
+  }
+
+  // Analyze document with AI
+  async analyzeDocument(documentId: string, userId: string) {
+    try {
+      const document = await this.documentModel.findOne({
+        _id: documentId,
+        userId,
+      });
+
+      if (!document) {
+        throw new NotFoundException('Document not found');
+      }
+
+      // Check if document has a file path
+      if (!document.filePath) {
+        throw new BadRequestException('Document file not found');
+      }
+
+      // Trigger AI analysis
+      await this.performAiAnalysis(
+        documentId,
+        document.filePath,
+        document.fileName,
+      );
+
+      return {
+        success: true,
+        message: 'AI analysis started successfully',
+        data: {
+          documentId,
+          status: 'processing',
+        },
+      };
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to start AI analysis');
     }
   }
 }

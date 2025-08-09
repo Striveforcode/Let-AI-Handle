@@ -83,6 +83,18 @@ export class Document {
   insights?: string[]; // AI-generated insights
 
   @Prop({
+    type: MongooseSchema.Types.Array,
+    required: false,
+  })
+  keyPoints?: string[]; // AI-generated key points
+
+  @Prop({
+    type: MongooseSchema.Types.String,
+    required: false,
+  })
+  sentiment?: string; // AI-generated sentiment analysis
+
+  @Prop({
     type: MongooseSchema.Types.Boolean,
     default: false,
   })
