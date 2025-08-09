@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { DocumentModule } from './document/document.module';
+import { ChatModule } from './chat/chat.module';
 import { AiService } from './ai/ai.service';
 
 @Module({
@@ -18,6 +19,7 @@ import { AiService } from './ai/ai.service';
     AuthModule,
     UserModule,
     DocumentModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService, AiService],

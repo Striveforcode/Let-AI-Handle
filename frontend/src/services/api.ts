@@ -233,6 +233,35 @@ export const documentAPI = {
     const response = await api.get("/document/stats/user");
     return response.data;
   },
+
+  // Analyze document with AI
+  analyzeDocument: async (documentId: string) => {
+    const response = await api.post(`/document/${documentId}/analyze`);
+    return response.data;
+  },
+};
+
+// Chat API functions
+export const chatAPI = {
+  // Start chat session with document
+  startChatSession: async (documentId: string) => {
+    const response = await api.post(`/chat/start/${documentId}`);
+    return response.data;
+  },
+
+  // Send message in chat
+  sendMessage: async (sessionId: string, message: string) => {
+    const response = await api.post(`/chat/message/${sessionId}`, {
+      message,
+    });
+    return response.data;
+  },
+
+  // Get chat history
+  getChatHistory: async (sessionId: string) => {
+    const response = await api.get(`/chat/history/${sessionId}`);
+    return response.data;
+  },
 };
 
 // Utility functions
